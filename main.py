@@ -48,7 +48,7 @@ def checkLimit(amount:float,category:str)->bool:
     if res[0]!=None:
         if amount<=res[0]:
             return (True,res[0])
-        return (False,0)
+        return (False,res[0])
     return (True,res[0])
 
 def check_user(id:int)->bool:
@@ -98,7 +98,13 @@ def transact(amount:float,month:int,year:int,typeof:str,category:str):
             conn.commit()
             print('Save this Transaction ID for later usages',result[0])
         else:
-            print(f'Limiting budget for {category}, Try updating or deleting the existing budget')
+            inp=input(f'Limiting budget for {category} remaining Budget : {am}, Try updating (1) or deleting the existing budget (2) : ')
+            if inp=='1':
+                amounttemp=float(input('Budget Amount (floating) : '))
+                updateBudget(amounttemp+am,category)
+            elif inp=='2':
+                deleteBudget(category)
+            
     except Exception as e:
         print('Something went wrong',e)
     finally:
@@ -171,14 +177,38 @@ def setBudget(amount:float,category:str):
     try:
 
         cursor=conn.cursor()
-        cursor.execute('insert into budget(amount,category,userid) values (?,?,?) returning id',(amount,category,useridx))
+        cursor.execute('select id from budget where userid=? and category=?',(useridx,category))
         res=cursor.fetchone()
-        conn.commit()
+        if res:
+            updateBudget(amount,category)
+        else:
+            cursor.execute('insert into budget(amount,category,userid) values (?,?,?) returning id',(amount,category,useridx))
+            res=cursor.fetchone()
+            conn.commit()
         print('Budget record ID :',res[0])
     except Exception:
         print('Something Went wrong')
     finally:
         conn.close()
+def updateBudget(amount:float,category:str):
+    category=category.lower()
+    global useridx
+    try:
+        cursor=conn.cursor()
+        cursor.execute('update budget set amount=? where userid=? and category=?',(amount,useridx,category))
+        conn.commit()
+        print('Updation Successful')
+    except Exception:
+        print('Something went wrong')
+    
+def deleteBudget(category:str):
+    global useridx
+    try:
+        cursor=conn.cursor()
+        cursor.execute('delete from budget where userid=? and category=?',(useridx,category))
+        conn.commit()
+    except Exception:
+        print('Something went wrong')
 def main():
     load_user()
     global useridx
@@ -243,6 +273,7 @@ if __name__=='__main__':
 # cursor.execute('create table transactions (id integer primary key autoincrement,userid integer not null,amount real not null, type text check (type in ("income","expense")),category char(50) not null, month integer not null,year integer not null,foreign key (userid) references users(userid)) ')
 # cursor.execute('create table budget (id integer primary key autoincrement,userid integer not null,amount real not null,category char(50) not null,foreign key (userid) references users(userid))')
 # cursor.execute('delete from budget')
+# cursor.execute('delete from sqlite_sequence where name="budget"')
 # print(cursor.fetchall())
 # conn.commit()
 # conn.close()
