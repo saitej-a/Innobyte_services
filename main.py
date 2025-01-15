@@ -1,3 +1,4 @@
+import pandas as pd
 import os
 import sqlite3
 from bcrypt import hashpw,gensalt,checkpw
@@ -127,8 +128,6 @@ def update_transact(id:int,item:str,val:str):
         conn.commit()
     except Exception:
         print('Somethign went wrong')
-    # cursor.execute('select * from transactions where id=?',(id,))
-    # print(*cursor.fetchone(),sep=' | ')
     finally:
         conn.close()
     print("Updated Successfully")
@@ -209,6 +208,29 @@ def deleteBudget(category:str):
         conn.commit()
     except Exception:
         print('Something went wrong')
+def backup(type:str):
+    type=type.lower()
+    
+    try:
+        table=pd.read_sql_query(f'select * from {type}',conn)
+        table.to_csv(f'{type}backup.csv',index=False)
+        print('Backup completed Successfully')
+    except Exception:
+        print('Something Went Wrong (check the spelling (transactions or users)) ')
+    finally:
+        conn.close()
+def restore(type1:str,path:str):
+    type1=type1.lower()
+    try:
+        table=pd.read_csv(path)
+        table.to_sql(f'{type1}',conn,if_exists='append',index=False)
+        print('restoration Completed Successfully')
+    except Exception as e:
+        print('Something went wrong',e)
+    finally:
+        # f.close()
+        conn.close()
+
 def main():
     load_user()
     global useridx
@@ -239,7 +261,11 @@ def main():
     set_budget=subparser.add_parser('setbudget',help='Set budget for categories to get notfied')
     set_budget.add_argument('amount',type=float,help='Amount limit')
     set_budget.add_argument('category',help='Category(Food, Rent, Cab. etc)',type=str)
-
+    backup_command=subparser.add_parser('backup',help='Backups transactions and users')
+    backup_command.add_argument('table_name',help='Users or transactions',type=str)
+    restore_command=subparser.add_parser('restore',help='restore records by uploading backup file')
+    restore_command.add_argument('table_name',help='table name ( users or transactions )',type=str)
+    restore_command.add_argument('path',help='csv file path (drag and drop here)',type=str)
     args=parser.parse_args()
     if args.command=='create_user':
         print(create_user(args.username,args.password))
@@ -264,16 +290,22 @@ def main():
         finreports(month=args.month,year=args.year)
     elif args.command=='setbudget':
         setBudget(args.amount,args.category)
+    elif args.command=='backup':
+        backup(args.table_name)
+    elif args.command=='restore':
+        restore(args.table_name,args.path)
     else:
         parser.print_help()
 if __name__=='__main__':
     main()
-    
+# backup('transactions')
 # cursor=conn.cursor()
-# cursor.execute('create table transactions (id integer primary key autoincrement,userid integer not null,amount real not null, type text check (type in ("income","expense")),category char(50) not null, month integer not null,year integer not null,foreign key (userid) references users(userid)) ')
+# cursor.execute('create table users (userid integer primary key autoincrement not null,username char(50) not null ,password char(50) not null)')
+# cursor.execute('create table transactions (id integer primary key autoincrement not null,userid integer not null,amount real not null, type text check (type in ("income","expense")),category char(50) not null, month integer not null,year integer not null,foreign key (userid) references users(userid)) ')
 # cursor.execute('create table budget (id integer primary key autoincrement,userid integer not null,amount real not null,category char(50) not null,foreign key (userid) references users(userid))')
-# cursor.execute('delete from budget')
-# cursor.execute('delete from sqlite_sequence where name="budget"')
+# cursor.execute('drop table budget')
+# cursor.execute('drop table transactions')
+# cursor.execute('drop table users')
 # print(cursor.fetchall())
 # conn.commit()
 # conn.close()
